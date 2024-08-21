@@ -1,0 +1,12 @@
+build/
+build2/
+build3/
+build4/
+build5/
+build6/
+build7/
+build8/
+build/*
+output.nc
+.cache
+.vscode
