@@ -54,6 +54,17 @@ inline void SetPixel(Accessor img_acc, const int w, const int h, const int i, co
 	img_acc[index + 3] = 1.0;
 }
 
+template<typename Accessor>
+inline void GetPixel(Accessor img_acc, const int w, const int h, const int i, const int j, vec3& val)
+{
+	if (i < 0 || i >= h || j < 0 || j >= w) return;
+	auto index = (i * w + j) * 4;
+
+	val.x() = img_acc[index + 0];
+	val.y() = img_acc[index + 1];
+	val.z() = img_acc[index + 2];
+}
+
 //template<typename Accessor>
 //inline void SetPixel(Accessor img_acc, const int w, const int h, const int i, const int j, const vec3& val) {
 //	if (i < 0 || i >= h || j < 0 || j >= w) return;

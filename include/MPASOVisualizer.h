@@ -60,10 +60,10 @@ public:
     static void VisualizeFixedLayer(MPASOField* mpasoF, VisualizationSettings* config, ImageBuffer<double>* img, sycl::queue& sycl_Q);
     static void VisualizeFixedDepth(MPASOField* mpasoF, VisualizationSettings* config, ImageBuffer<double>* img, sycl::queue& sycl_Q);
     static void VisualizeFixedLatitude(MPASOField* mpasoF, VisualizationSettings* config, ImageBuffer<double>* img, sycl::queue& sycl_Q);
-
     static void GenerateSamplePoint(std::vector<CartesianCoord>& points, SamplingSettings* config);
-    static void VisualizeTrajectory(MPASOField* mpasoF, std::vector<CartesianCoord>& points, TrajectorySettings* config, std::vector<int>& default_cell_id, sycl::queue& sycl_Q);
+    static std::vector<CartesianCoord>  VisualizeTrajectory(MPASOField* mpasoF, std::vector<CartesianCoord>& points, TrajectorySettings* config, std::vector<int>& default_cell_id, sycl::queue& sycl_Q);
 
+    static void VisualizeFixedLayer_TimeVarying(int width, int height, ImageBuffer<double>* img1, ImageBuffer<double>* img2, float time1, float time2, float time, sycl::queue& sycl_Q);
   
 };
 

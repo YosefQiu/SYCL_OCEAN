@@ -869,7 +869,7 @@ void rotateAroundAxis(const vec3& point, const vec3& axis, double theta, double&
 }
 
 
-void MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<CartesianCoord>& points, TrajectorySettings* config, std::vector<int>& default_cell_id, sycl::queue& sycl_Q)
+std::vector<CartesianCoord>  MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<CartesianCoord>& points, TrajectorySettings* config, std::vector<int>& default_cell_id, sycl::queue& sycl_Q)
 {
     
     std::vector<vec3> update_points;
@@ -1004,7 +1004,11 @@ void MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<Cartes
                         cell_neig_vec[k] = std::numeric_limits<int>::quiet_NaN();
                     }
                 }
-                //out << "1.5::::: tmp cell_id " << cell_id << sycl::endl;
+
+                // out << "1.5::::: tmp cell_id " << cell_id << sycl::endl;
+
+
+
 #pragma region IsOnOcean
                 // 判断是否在大陆上
                 bool is_land = false;
@@ -1055,7 +1059,7 @@ void MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<Cartes
                 }
 #pragma endregion IsOnOcean  
                 
-                
+               
                 double current_point_ztop_vec[VERTLEVELS];
                 vec3 current_cell_vertex_pos[VERTEX_NUM];
                 double current_cell_vertex_weight[VERTEX_NUM];
@@ -1097,6 +1101,8 @@ void MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<Cartes
                         break;
                     }
                 }
+            
+               
                 if (layer == -1)
                 {
                     continue;
@@ -1145,7 +1151,7 @@ void MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<Cartes
 
                     double speed = magnitude(current_velocity);
                     double theta = (speed * runTime) / r;
-                    // vec3 rotatedPosition = 
+                    //vec3 rotatedPosition = 
                     rotateAroundAxis(position, rotationAxis, theta, pos_x, pos_y, pos_z);
                     //out << " 2:::: " << position.x() << " " << position.y() << " " << position.z() << " ps " << pos_x << " " << pos_y << " " << pos_z << sycl::endl;   
                     new_position = {pos_x, pos_y, pos_z};
@@ -1160,14 +1166,19 @@ void MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<Cartes
                     }
 
                 } 
+            
+            
+            
             }
         });
+       
     });
     sycl_Q.wait();
 
-
+    
     auto after_p = sample_points_buf.get_access<sycl::access::mode::read>(); 
     auto after_write_p = wirte_points_buf.get_access<sycl::access::mode::read>();
+    std::vector<CartesianCoord> last_points;
     // for (size_t i = 0; i < points.size(); ++i) 
     // {
     //     vec3 p = after_p[i];
@@ -1203,10 +1214,61 @@ void MPASOVisualizer::VisualizeTrajectory(MPASOField* mpasoF, std::vector<Cartes
             VTKFileManager::ConnectPointsToOneLine(polyDataList, fileName);
             polyDataList.clear();
             file_times++;
+
+            // 这个点是该采样的最后一个路径点 p
+            last_points.push_back(p);
         }
     }
    
     // 合并所有生成的 .vtp 文件
     VTKFileManager::MergeVTPFiles(file_name_vec, config->fileName);
-    
+    std::cout << "last points size " << last_points.size() << std::endl;
+    return last_points;
+}
+
+void MPASOVisualizer::VisualizeFixedLayer_TimeVarying(int width, int height, ImageBuffer<double> *img1, ImageBuffer<double> *img2, float time1, float time2, float time, sycl::queue &sycl_Q)
+{
+    float t = (time - time1) / (time2 - time1);
+    sycl::buffer<double, 1> img_buf1(img1->mPixels.data(), sycl::range<1>(img1->mPixels.size()));
+    sycl::buffer<double, 1> img_buf2(img2->mPixels.data(), sycl::range<1>(img2->mPixels.size()));
+    sycl::buffer<int, 1> width_buf(&width, 1);
+    sycl::buffer<int, 1> height_buf(&height, 1);
+    sycl::buffer<float,1 > t_buf(&t, 1);
+    sycl_Q.submit([&](sycl::handler& cgh) 
+    {
+
+#pragma region sycl_acc_image
+        auto img_acc1 = img_buf1.get_access<sycl::access::mode::read_write>(cgh);
+        auto img_acc2 = img_buf2.get_access<sycl::access::mode::read_write>(cgh);
+        auto width_acc = width_buf.get_access<sycl::access::mode::read>(cgh);
+        auto height_acc = height_buf.get_access<sycl::access::mode::read>(cgh);
+        auto t_acc = t_buf.get_access<sycl::access::mode::read>(cgh);
+#pragma endregion sycl_acc_image
+
+        sycl::range<2> global_range((height + 7) / 8 * 8, (width + 7) / 8 * 8);
+        sycl::range<2> local_range(8, 8);  
+
+        cgh.parallel_for(sycl::nd_range<2>(global_range, local_range), [=](sycl::nd_item<2> idx) 
+        {
+
+            int height_index = idx.get_global_id(0);
+            int width_index = idx.get_global_id(1);
+            int global_id = height_index * width_acc[0] + width_index;
+                
+            if(height_index < height && width_index < width)
+            {
+                vec3 img1_rgb; vec3 img2_rgb; vec3 final_rgb;
+                GetPixel(img_acc1, width_acc[0], height_acc[0], height_index, width_index, img1_rgb);
+                GetPixel(img_acc2, width_acc[0], height_acc[0], height_index, width_index, img2_rgb);
+                final_rgb.x() = (1.0 - t_acc[0]) * img1_rgb.x() + t_acc[0] * img2_rgb.x();
+                final_rgb.y() = (1.0 - t_acc[0]) * img1_rgb.y() + t_acc[0] * img2_rgb.y();
+                final_rgb.z() = (1.0 - t_acc[0]) * img1_rgb.z() + t_acc[0] * img2_rgb.z();
+                //final_rgb = img2_rgb;
+                SetPixel(img_acc1, width_acc[0], height_acc[0], height_index, width_index, final_rgb);
+            }
+        });
+
+
+    });
+    sycl_Q.wait();
 }
