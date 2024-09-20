@@ -82,7 +82,7 @@ public:
 		writer->SetFileName((outputName + TypeToStr(config->VisType) + std::to_string(k) + ".vti").c_str());
 		writer->SetInputData(imageData);
 		writer->Write();
-		Debug("finished... %s", (TypeToStr(config->VisType) + std::to_string(k) + ".vti").c_str());
+		Debug("[VTKFileManager]::Finished... %s", (TypeToStr(config->VisType) + std::to_string(k) + ".vti").c_str());
 	}
 	static void SavePointAsVTP(std::vector<CartesianCoord>& points, std::string outpuName = "output")
 	{
@@ -162,7 +162,7 @@ public:
 		writer->SetFileName((outputName + ".vtp").c_str());
 		writer->SetInputData(polydata);
 		writer->Write();
-		Debug("Finished writing [ %s ]", (outputName + ".vtp").c_str());
+		Debug("[VTKFileManager]::Finished....  [ %s ]", (outputName + ".vtp").c_str());
 	}
 
 	static void ConnectPointsToOneLine(const std::vector<vtkSmartPointer<vtkPolyData>>& polyDataList, const std::string& outputFileName = "output.vtp") {
@@ -247,7 +247,7 @@ public:
         writer->SetFileName(checkAndModifyExtension(outputFileName, "vtp").c_str());
         writer->SetInputData(appendFilter->GetOutput());
         writer->Write();
-		Debug("Finished writing %s", outputFileName.c_str());
+		Debug("[VTKFileManager]::Finished... %s", outputFileName.c_str());
     }
 
 };

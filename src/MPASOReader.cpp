@@ -38,6 +38,25 @@ void MPASOReader::loadingVec3(const int size, std::vector<vec3>& data, std::stri
         data[i] = vec3(x_Value[i], y_Value[i], z_Value[i]);
     }
 }
+void MPASOReader::readData()
+{
+    // get size
+    mCellsSize = ncFile.get()->getDim("nCells").getSize();
+    mEdgesSize = ncFile.get()->getDim("nEdges").getSize();
+    mMaxEdgesSize = ncFile.get()->getDim("maxEdges").getSize();
+    mVertexSize = ncFile.get()->getDim("nVertices").getSize();
+    mTimesteps = ncFile.get()->getDim("Time").getSize();
+    mVertLevels = ncFile.get()->getDim("nVertLevels").getSize();
+    mVertLevelsP1 = ncFile.get()->getDim("nVertLevelsP1").getSize();
+
+    Debug("[MPASOReader]::loading mCellsSize = \t [ %d ]", mCellsSize);
+    Debug("[MPASOReader]::loading mEdgesSize = \t [ %d ]", mEdgesSize);
+    Debug("[MPASOReader]::loading mMaxEdgesSize = \t [ %d ]", mMaxEdgesSize);
+    Debug("[MPASOReader]::loading mVertexSize = \t [ %d ]", mVertexSize);
+    Debug("[MPASOReader]::loading mTimesteps = \t [ %d ]", mTimesteps);
+    Debug("[MPASOReader]::loading mVertLevels = \t [ %d ]", mVertLevels);
+    Debug("[MPASOReader]::loading mVertLevelsP1 = \t [ %d ]", mVertLevelsP1);
+}
 
 void MPASOReader::loadingData()
 {
@@ -62,13 +81,26 @@ void MPASOReader::loadingData()
     loadingInt(mEdgesSize * 2, cellsOnEdge_vec, "cellsOnEdge");
     loadingInt(mCellsSize * mMaxEdgesSize, edgesOnCell_vec, "edgesOnCell");
 
-    Debug("[MPASOReader]::loading mCellsSize = [ %d ]", mCellsSize);
-    Debug("[MPASOReader]::loading mEdgesSize = [ %d ]", mEdgesSize);
-    Debug("[MPASOReader]::loading mMaxEdgesSize = [ %d ]", mMaxEdgesSize);
-    Debug("[MPASOReader]::loading mVertexSize = [ %d ]", mVertexSize);
-    Debug("[MPASOReader]::loading mTimesteps = [ %d ]", mTimesteps);
-    Debug("[MPASOReader]::loading mVertLevels = [ %d ]", mVertLevels);
-    Debug("[MPASOReader]::loading mVertLevelsP1 = [ %d ]", mVertLevelsP1);
+    Debug("[MPASOReader]::loading mCellsSize = \t [ %d ]", mCellsSize);
+    Debug("[MPASOReader]::loading mEdgesSize = \t [ %d ]", mEdgesSize);
+    Debug("[MPASOReader]::loading mMaxEdgesSize = \t [ %d ]", mMaxEdgesSize);
+    Debug("[MPASOReader]::loading mVertexSize = \t [ %d ]", mVertexSize);
+    Debug("[MPASOReader]::loading mTimesteps = \t [ %d ]", mTimesteps);
+    Debug("[MPASOReader]::loading mVertLevels = \t [ %d ]", mVertLevels);
+    Debug("[MPASOReader]::loading mVertLevelsP1 = \t [ %d ]", mVertLevelsP1);
+}
+
+void MPASOReader::readSol(const int& timestep)
+{
+    // get size
+    mCellsSize = ncFile.get()->getDim("nCells").getSize();
+    mEdgesSize = ncFile.get()->getDim("nEdges").getSize();
+    mMaxEdgesSize = ncFile.get()->getDim("maxEdges").getSize();
+    mVertexSize = ncFile.get()->getDim("nVertices").getSize();
+    mTimesteps = ncFile.get()->getDim("Time").getSize();
+    mVertLevels = ncFile.get()->getDim("nVertLevels").getSize();
+    mVertLevelsP1 = ncFile.get()->getDim("nVertLevelsP1").getSize();
+    currentTimestep = timestep;
 }
 
 void MPASOReader::loadingVelocity(const int& timestep)

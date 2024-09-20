@@ -43,10 +43,22 @@ public:
 	std::vector<double>     cellBottomDepth_vec; 	   // nCellsSize
 
 public:
+	static Ptr readGridInfo(const std::string& path)
+	{
+		std::shared_ptr<MPASOReader> reader(new MPASOReader(path));
+		reader->readData(); 
+		return reader;
+	}
 	static Ptr loadingGridInfo(const std::string& path)
 	{
 		std::shared_ptr<MPASOReader> reader(new MPASOReader(path));
 		reader->loadingData(); 
+		return reader;
+	}
+	static Ptr readSolInfo(const std::string& path, const int& timestep)
+	{
+		std::shared_ptr<MPASOReader> reader(new MPASOReader(path));
+		reader->readSol(timestep);
 		return reader;
 	}
 	static Ptr loadingVelocityInfo(const std::string& path, const int& timestep)
@@ -55,6 +67,8 @@ public:
 		reader->loadingVelocity(timestep);
 		return reader;
 	}
+	void readData();
+	void readSol(const int& timestep);
 	void loadingData();
 	void loadingVelocity(const int& timestep);
 private:

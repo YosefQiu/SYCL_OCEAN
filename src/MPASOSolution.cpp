@@ -23,6 +23,36 @@ void MPASOSolution::initSolution(MPASOReader* reader)
     // calcCellCenterZtop();
 }
 
+void MPASOSolution::initSolution(ftk::ndarray_group* g, MPASOReader* reader)
+{
+    std::cout << "==========================================\n";
+    
+    this->mCurrentTime = std::move(reader->currentTimestep);
+    this->mCellsSize = reader->mCellsSize;
+    this->mEdgesSize = reader->mEdgesSize;
+    this->mMaxEdgesSize = reader->mMaxEdgesSize;
+    this->mVertexSize = reader->mVertexSize;
+    this->mTimesteps = reader->mTimesteps;
+    this->mVertLevels = reader->mVertLevels;
+    this->mVertLevelsP1 = reader->mVertLevelsP1;
+    std::cout << "          [ timestep = " << this->mCurrentTime << " ]\n";
+    copyFromNdarray_Double(g, "bottomDepth", this->cellBottomDepth_vec);
+    copyFromNdarray_Double(g, "surfaceVelocityMeridional", this->cellMeridionalVelocity_vec);
+    copyFromNdarray_Double(g, "surfaceVelocityZonal", this->cellZonalVelocity_vec);
+    copyFromNdarray_Double(g, "layerThickness", this->cellLayerThickness_vec);
+    copyFromNdarray_Double(g,  "zTop", this->cellZTop_vec);
+    copyFromNdarray_Double(g, "normalVelocity", this->cellNormalVelocity_vec);
+    
+    
+    
+    // //ReadZonalVelocity(timestep, cellZonalVelocity_vec);
+
+
+
+    // //ReadVelocity(timestep, cellVelocity_vec);
+    // //ReadVertVelocityTop(timestep, cellVertVelocity_vec);
+}
+
 void MPASOSolution::getCellVelocity(const size_t cell_id, const size_t level, std::vector<vec3>& cell_on_velocity, vec3& vel)
 {
     auto VertLevels = mVertLevels;
@@ -300,8 +330,6 @@ void saveDataToTextFile3(const std::vector<vec3>& data, const std::string& filen
 
 void MPASOSolution::calcCellVertexZtop(MPASOGrid* grid, sycl::queue& q)
 {
-    Debug(("[MPASOSolution]::Calc Cell Vertex Z Top at t = " + std::to_string(mCurrentTime)).c_str());
-    
     if (mTotalZTopLayer == 0 || mTotalZTopLayer == -1) mTotalZTopLayer = mVertLevels;
     if (!cellVertexZTop_vec.empty()) cellVertexZTop_vec.clear();
     cellVertexZTop_vec.resize(grid->vertexCoord_vec.size() * mTotalZTopLayer);
@@ -425,16 +453,16 @@ void MPASOSolution::calcCellVertexZtop(MPASOGrid* grid, sycl::queue& q)
         });
     });
     q.wait_and_throw();
-    Debug("finished the sycl part");
+    // Debug("finished the sycl part");
     auto host_accessor = cellVertexZTop_buf.get_access<sycl::access::mode::read>();
     auto range = host_accessor.get_range();
     size_t acc_length = range.size(); // 获取缓冲区的总大小
 
-    std::cout << "acc_cellVertexZTop_buf.size() = " << cellVertexZTop_vec.size() << " " << acc_length << std::endl;
-    std::cout << "mVerticesSize x nVertLevels = " << grid->mVertexSize * mVertLevels << std::endl;
-    //saveDataToTextFile(cellVertexZTop_vec, "OUTPUT1_ztop.txt");
+    // std::cout << "acc_cellVertexZTop_buf.size() = " << cellVertexZTop_vec.size() << " " << acc_length << std::endl;
+    // std::cout << "mVerticesSize x nVertLevels = " << grid->mVertexSize * mVertLevels << std::endl;
     writeVertexZTopToFile<double>(cellVertexZTop_vec, "cellVertexZTop_vec.bin");
-    Debug("finish Calc cellVertexZTop_vec");
+    Debug("[MPASOSolution]::Calc Cell Vertex Z Top  = \t [ %d ] \t type = [ float64 ]", 
+            cellVertexZTop_vec.size());
 #endif
 
 #if USE_SYCL == 0
@@ -545,8 +573,6 @@ void MPASOSolution::calcCellVertexZtop(MPASOGrid* grid, sycl::queue& q)
 void MPASOSolution::calcCellCenterVelocity(MPASOGrid* grid, sycl::queue& q)
 {
 
-    Debug(("[MPASOSolution]::Calc Center Velocity at t = " + std::to_string(mCurrentTime)).c_str());
-
     if (!cellCenterVelocity_vec.empty()) cellCenterVelocity_vec.clear();
     cellCenterVelocity_vec.resize(mCellsSize * mTotalZTopLayer);
 
@@ -656,16 +682,16 @@ void MPASOSolution::calcCellCenterVelocity(MPASOGrid* grid, sycl::queue& q)
     });
     q.wait_and_throw();
 
-    Debug("finished the sycl part");
     auto host_accessor = cellCenterVelocity_buf.get_access<sycl::access::mode::read>();
     auto range = host_accessor.get_range();
     size_t acc_length = range.size(); // 获取缓冲区的总大小
 
-    std::cout << "cellCenterVelocity_buf.size() = " << cellCenterVelocity_vec.size() << " " << acc_length << std::endl;
-    std::cout << "mCellSize x nVertLevels = " << grid->mCellsSize * mVertLevels << std::endl;
+    // std::cout << "cellCenterVelocity_buf.size() = " << cellCenterVelocity_vec.size() << " " << acc_length << std::endl;
+    // std::cout << "mCellSize x nVertLevels = " << grid->mCellsSize * mVertLevels << std::endl;
     //saveDataToTextFile2(cellCenterVelocity_vec, "OUTPUT1_ztop.txt");
     writeVertexZTopToFile<vec3>(cellCenterVelocity_vec, "cellCenterVelocity_vec.bin");
-    Debug("finish Calc cellCenterVelocity_vec");
+    Debug("[MPASOSolution]::Calc Cell VcellCenterVelocity_vec  = \t [ %d ] \t type = [ float64 float64 float64]", 
+            cellCenterVelocity_vec.size());
 #endif
 
 #if USE_SYCL == 0
@@ -757,7 +783,7 @@ void MPASOSolution::calcCellCenterVelocity(MPASOGrid* grid, sycl::queue& q)
 
 void MPASOSolution::calcCellVertexVelocity(MPASOGrid* grid, sycl::queue& q)
 {
-    Debug(("[MPASOSolution]::Calc Cell Vertex Velocity at t = " + std::to_string(mCurrentTime)).c_str());
+    
 
     if(!cellVertexVelocity_vec.empty()) cellVertexVelocity_vec.clear();
     cellVertexVelocity_vec.resize(mVertexSize * mTotalZTopLayer);
@@ -883,16 +909,17 @@ void MPASOSolution::calcCellVertexVelocity(MPASOGrid* grid, sycl::queue& q)
             });
         });
     q.wait_and_throw();
-    Debug("finished the sycl part");
+    // Debug("finished the sycl part");
     auto host_accessor = cellVertexVelocity_buf.get_access<sycl::access::mode::read>();
     auto range = host_accessor.get_range();
     size_t acc_length = range.size(); // 获取缓冲区的总大小
 
-    std::cout << "cellVertexVelocity_buf.size() = " << cellVertexVelocity_vec.size() << " " << acc_length << std::endl;
-    std::cout << "mVerticesSize x nVertLevels = " << grid->mVertexSize * mVertLevels << std::endl;
+    // std::cout << "cellVertexVelocity_buf.size() = " << cellVertexVelocity_vec.size() << " " << acc_length << std::endl;
+    // std::cout << "mVerticesSize x nVertLevels = " << grid->mVertexSize * mVertLevels << std::endl;
     //saveDataToTextFile2(cellVertexVelocity_vec, "OUTPUT1_ztop.txt");
     writeVertexZTopToFile<vec3>(cellVertexVelocity_vec, "cellVertexVelocity_vec.bin");
-    Debug("finish Calc cellVertexVelocity_vec");
+    Debug("[MPASOSolution]::Calc Cell cellVertexVelocity_vec  = \t [ %d ] \t type = [ float64 float64 float64]", 
+            cellVertexVelocity_vec.size());
 #endif
 
 
@@ -993,3 +1020,18 @@ void MPASOSolution::calcCellVertexVelocity(MPASOGrid* grid, sycl::queue& q)
 }
 
 
+void MPASOSolution::copyFromNdarray_Double(ftk::ndarray_group* g, std::string value, std::vector<double>& vec)
+{
+    if (g->has(value))
+    {
+        auto tmp_ptr = std::dynamic_pointer_cast<ftk::ndarray<double>>(g->get(value));
+        auto tmp_vec = tmp_ptr->std_vector();
+        vec.resize(tmp_vec.size());
+        for (auto i = 0; i < tmp_vec.size(); i++)
+            vec[i] = static_cast<double>(tmp_vec[i]);
+        Debug("[Ndarray]::loading %s_vec = \t [ %d ] \t type = [ %s ]", 
+            value.c_str(),
+            vec.size(), 
+            ftk::ndarray_base::dtype2str(g->get(value).get()->type()).c_str());
+    }
+}

@@ -39,16 +39,21 @@ std::string vectorToString(const std::vector<std::string>& vec, const std::strin
 }
 
 
-void TimeFixed(sycl::queue& sycl_Q, 
-	const std::string& grid_path, const std::string& vel_path)
+void TimeFixed(sycl::queue& sycl_Q, ftk::stream* stream)
 {
+	auto grid_path = stream->substreams[0]->filenames[0];
+	auto vel_path = stream->substreams[1]->filenames[0];
+	
+	auto gs = stream->read_static();
+	std::cout << " [ files attribute information" << " ]\n";
 	mpasoGrid = std::make_shared<MPASOGrid>();
-	mpasoGrid->initGrid(MPASOReader::loadingGridInfo(grid_path).get());
+	mpasoGrid->initGrid(gs.get(), MPASOReader::readGridInfo(grid_path).get());
 	mpasoGrid->createKDTree("./index.bin", sycl_Q);
 
+	int timestep = 0;
+	auto gt = stream->read(timestep);
 	mpasoSol = std::make_shared<MPASOSolution>();
-	mpasoSol->initSolution(MPASOReader::loadingVelocityInfo(vel_path, 0).get());
-	//mpasoSol->calcCellCenterZtop();
+	mpasoSol->initSolution(gt.get(), MPASOReader::readSolInfo(vel_path, timestep).get());
 	mpasoSol->calcCellVertexZtop(mpasoGrid.get(), sycl_Q);
 	mpasoSol->calcCellCenterVelocity(mpasoGrid.get(), sycl_Q);
 	mpasoSol->calcCellVertexVelocity(mpasoGrid.get(), sycl_Q);
@@ -89,22 +94,25 @@ void TimeFixed(sycl::queue& sycl_Q,
 	config_fixed_lat->VisType = VisualizeType::kFixedDepth;
 	config_fixed_lat->PositionType = CalcPositionType::kPoint;
 
-
+	std::cout << "==========================================\n";
 
 	ImageBuffer<double>* img1 = new ImageBuffer<double>(config->imageSize.x(), config->imageSize.y());
 	ImageBuffer<double>* img2 = new ImageBuffer<double>(config_fixed_depth->imageSize.x(), config_fixed_depth->imageSize.y());
 	ImageBuffer<double>* img3 = new ImageBuffer<double>(config_fixed_lat->imageSize.x(), config_fixed_lat->imageSize.y());
 
 	// remapping
+	std::cout << " [ Run remapping test(fixed time)" << " ]\n";
+	std::cout << " 	[ Run remapping VisualizeFixedLayer(fixed time)" << " ]\n";
 	MPASOVisualizer::VisualizeFixedLayer(mpasoField.get(), config, img1, sycl_Q);
 	VTKFileManager::SaveVTI(img1, config);
+	
+	std::cout << " 	[ Run remapping VisualizeFixedDepth(fixed time)" << " ]\n";
 	MPASOVisualizer::VisualizeFixedDepth(mpasoField.get(), config_fixed_depth, img2, sycl_Q);
 	VTKFileManager::SaveVTI(img2, config_fixed_depth);
-	MPASOVisualizer::VisualizeFixedLatitude(mpasoField.get(), config_fixed_lat, img3, sycl_Q);
-  	Debug("finished... fixed_lat_35.000000.vti");
+	//MPASOVisualizer::VisualizeFixedLatitude(mpasoField.get(), config_fixed_lat, img3, sycl_Q);
+  	//Debug("finished... fixed_lat_35.000000.vti");
 
-
-	
+	std::cout << " 	[ Run Trtrajector(fixed time)" << " ]\n";
 	SamplingSettings* sample_conf = new SamplingSettings;
 	sample_conf->sampleDepth = config_fixed_depth->FixedDepth;
 	sample_conf->sampleLatitudeRange = vec2(25.0, 45.0);
@@ -123,7 +131,7 @@ void TimeFixed(sycl::queue& sycl_Q,
 	VTKFileManager::SavePointAsVTP(sample_points, "output_origin");
 	
 	mpasoField->calcInWhichCells(sample_points, cell_id_vec);
-	std::cout << std::fixed << std::setprecision(4) << "before trajector cell_id [ " << cell_id_vec[0] << " ]" << " " << sample_points[0].x() << " " << sample_points[0].y() << " " << sample_points[0].z() << std::endl;
+	//std::cout << std::fixed << std::setprecision(4) << "before trajector cell_id [ " << cell_id_vec[0] << " ]" << " " << sample_points[0].x() << " " << sample_points[0].y() << " " << sample_points[0].z() << std::endl;
 
 	MPASOVisualizer::VisualizeTrajectory(mpasoField.get(), sample_points, traj_conf, cell_id_vec, sycl_Q);
 
@@ -198,9 +206,6 @@ void TimeVaryingTrajectory(sycl::queue& sycl_Q,
 	std::vector<std::string>& grid_path_vec, std::vector<std::string>& vel_path_vec)
 {
 	
-
-
-
 	constexpr int width = 361; constexpr int height = 181;
 	VisualizationSettings* config_fixed_depth = new VisualizationSettings();
 	config_fixed_depth->imageSize = vec2(width, height);
@@ -277,29 +282,37 @@ void TimeVaryingTrajectory(sycl::queue& sycl_Q,
 	
 }
 
-int main(int argc, char* argv[])
-{
 
-	cxxopts::Options options(argv[0]);
+bool parseCommandLine(int argc, char* argv[], std::string& input_yaml_filename, std::string& data_path_prefix) 
+{
+    cxxopts::Options options(argv[0]);
 	options.add_options()
 		("input,i", "Input yaml file", cxxopts::value<std::string>(input_yaml_filename))
 		("prefix,p", "Data path prefix", cxxopts::value<std::string>(data_path_prefix))
 		("help,h", "Print this information");
 
-	options.parse_positional({ "input" });
 	auto results = options.parse(argc, argv);
+	if (results.count("help")) 
+	{
+        std::cout << options.help() << std::endl;
+        return false;
+    }
+	if (!results.count("input")) 
+	{
+        Debug("[ERROR]::No input file detected");
+        return false;
+    }
+	return true;
+}
 
-	if (!results.count("input") || results.count("help")) {
-#if _WIN32
-		input_yaml_filename = "../mpas.yaml";
-#elif __linux__
-		// path = path = "../SOMA_output.nc";
-		input_yaml_filename = "../mpas.yaml";
-		exit(0);
-#endif
-	}
-	std::cout << " [ " << input_yaml_filename << " ]\n";
-	path = input_yaml_filename.c_str();
+int main(int argc, char* argv[])
+{
+
+	if (!parseCommandLine(argc, argv, input_yaml_filename, data_path_prefix)) {
+        exit(1);
+    }
+	
+    path = input_yaml_filename.c_str();
 
 	sycl::queue sycl_Q;
 #if __linux__
@@ -318,31 +331,21 @@ int main(int argc, char* argv[])
 	if (!data_path_prefix.empty()) stream->set_path_prefix(data_path_prefix);
 	std::cout << " [ files information" << " ]\n";
 	stream->parse_yaml(input_yaml_filename);
-	auto grid_path = stream->substreams[0]->filenames[0];
-	auto vel_path = stream->substreams[1]->filenames[0];
 	
-	auto gs = stream->read_static();
-	std::cout << " [ files attribute information" << " ]\n";
-	//gs->print_info(std::cerr);
 
-	for (int i = 0; i < stream->total_timesteps(); i++) {
-		auto g = stream->read(i);
-		//g->print_info(std::cerr);
-	}
+	TimeFixed(sycl_Q, stream.get());	
 
-	//TimeFixed(sycl_Q, grid_path, vel_path);	
-
-	std::vector<std::string> grid_path_vec, vel_path_vec;
-	grid_path_vec.push_back("../soma/output_1.nc");	vel_path_vec.push_back("../soma/output_1.nc");
-	grid_path_vec.push_back("../soma/output_2.nc");	vel_path_vec.push_back("../soma/output_2.nc");
-	grid_path_vec.push_back("../soma/output_3.nc");	vel_path_vec.push_back("../soma/output_3.nc");
-	grid_path_vec.push_back("../soma/output_4.nc");	vel_path_vec.push_back("../soma/output_4.nc");
-	grid_path_vec.push_back("../soma/output_5.nc");	vel_path_vec.push_back("../soma/output_5.nc");
+	// std::vector<std::string> grid_path_vec, vel_path_vec;
+	// grid_path_vec.push_back("../soma/output_1.nc");	vel_path_vec.push_back("../soma/output_1.nc");
+	// grid_path_vec.push_back("../soma/output_2.nc");	vel_path_vec.push_back("../soma/output_2.nc");
+	// grid_path_vec.push_back("../soma/output_3.nc");	vel_path_vec.push_back("../soma/output_3.nc");
+	// grid_path_vec.push_back("../soma/output_4.nc");	vel_path_vec.push_back("../soma/output_4.nc");
+	// grid_path_vec.push_back("../soma/output_5.nc");	vel_path_vec.push_back("../soma/output_5.nc");
 
 
 
 	//TimeVarying(sycl_Q, grid_path_vec, grid_path_vec);
-	TimeVaryingTrajectory(sycl_Q, grid_path_vec, grid_path_vec);
+	// TimeVaryingTrajectory(sycl_Q, grid_path_vec, grid_path_vec);
 
 	system("pause");
 	return 0;

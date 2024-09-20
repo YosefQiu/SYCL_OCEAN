@@ -1,7 +1,7 @@
 #pragma once
 #include "MPASOReader.h"
 #include "MPASOGrid.h"
-
+#include "ndarray/ndarray_group_stream.hh"
 
 class MPASOSolution
 {
@@ -9,6 +9,7 @@ public:
     MPASOSolution() = default;
 public:
     void initSolution(MPASOReader* reader);
+    void initSolution(ftk::ndarray_group* g, MPASOReader* reader = nullptr);
 public:
     int mCurrentTime;
 
@@ -55,6 +56,8 @@ public:
     void getCellVertexZTop(const size_t vertex_id, const size_t level, std::vector<double>& cell_vertex_ztop, double& ztop);
     void getCellCenterVelocity(const size_t cell_id, const size_t level, std::vector<vec3>& cell_on_velocity, vec3& vel);
     void getCellVertexVelocity(const size_t vertex_id, const size_t level, std::vector<vec3>& cell_vertex_velocity, vec3& vel);
-
+private:
+    void copyFromNdarray_Double(ftk::ndarray_group* g, std::string value, std::vector<double>& vec);
+    //void copyFromNdarray_Double
 };
 

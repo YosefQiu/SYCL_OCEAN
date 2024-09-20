@@ -34,7 +34,7 @@ void MPASOVisualizer::VisualizeFixedLayer(MPASOField* mpasoF, VisualizationSetti
         }
     }
 
-    Debug("MPASOVisualizer::Finished KD Tree Search....");
+    Debug("[MPASOVisualizer]::Finished KD Tree Search....");
     
 #pragma endregion KDTreeFunc
     
@@ -256,7 +256,7 @@ void MPASOVisualizer::VisualizeFixedDepth(MPASOField* mpasoF, VisualizationSetti
         }
     }
 
-    Debug("MPASOVisualizer::Finished KD Tree Search....");
+    Debug("[MPASOVisualizer]::Finished KD Tree Search....");
 #pragma endregion KDTreeFunc
 
 #pragma region sycl_buffer_image
@@ -1175,7 +1175,7 @@ std::vector<CartesianCoord>  MPASOVisualizer::VisualizeTrajectory(MPASOField* mp
     });
     sycl_Q.wait();
 
-    
+    Debug("[VisualizeTrajectory]::Finished...");
     auto after_p = sample_points_buf.get_access<sycl::access::mode::read>(); 
     auto after_write_p = wirte_points_buf.get_access<sycl::access::mode::read>();
     std::vector<CartesianCoord> last_points;
@@ -1222,7 +1222,7 @@ std::vector<CartesianCoord>  MPASOVisualizer::VisualizeTrajectory(MPASOField* mp
    
     // 合并所有生成的 .vtp 文件
     VTKFileManager::MergeVTPFiles(file_name_vec, config->fileName);
-    std::cout << "last points size " << last_points.size() << std::endl;
+    // std::cout << "last points size " << last_points.size() << std::endl;
     return last_points;
 }
 

@@ -30,6 +30,45 @@ void MPASOGrid::initGrid(MPASOReader* reader)
  
 }
 
+void MPASOGrid::initGrid(ftk::ndarray_group* g, MPASOReader* reader)
+{
+    this->mCellsSize    = reader->mCellsSize;
+    this->mEdgesSize    = reader->mEdgesSize;
+    this->mMaxEdgesSize = reader->mMaxEdgesSize;
+    this->mVertexSize   = reader->mVertexSize;
+    this->mTimesteps    = reader->mTimesteps;
+    this->mVertLevels   = reader->mVertLevels;
+    this->mVertLevelsP1 = reader->mVertLevelsP1;
+
+    copyFromNdarray_Vec3(g, "xCell", "yCell", "zCell", this->cellCoord_vec, "cellCoord_vec");
+    copyFromNdarray_Vec3(g, "xVertex", "yVertex", "zVertex", this->vertexCoord_vec, "vertexCoord_vec");
+    copyFromNdarray_Vec3(g, "xEdge", "yEdge", "zEdge", this->edgeCoord_vec, "edgeCoord_vec");
+    copyFromNdarray_Vec2(g, "latVertex", "lonVertex", this->vertexLatLon_vec, "vertexLatLon_vec");
+    
+    copyFromNdarray_Int(g, "verticesOnCell", this->verticesOnCell_vec);
+    copyFromNdarray_Int(g, "cellsOnVertex", this->cellsOnVertex_vec);
+    copyFromNdarray_Int(g, "cellsOnCell", this->cellsOnCell_vec);
+    copyFromNdarray_Int(g, "nEdgesOnCell", this->numberVertexOnCell_vec);
+    copyFromNdarray_Int(g, "cellsOnEdge", this->cellsOnEdge_vec);
+    copyFromNdarray_Int(g, "edgesOnCell", this->edgesOnCell_vec);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
 void MPASOGrid::createKDTree(const char* kdTree_path, sycl::queue& SYCL_Q)
 {
 #if _WIN32 || __linux__
@@ -137,3 +176,64 @@ void MPASOGrid::getEdgesOnCell(const size_t cell_id, std::vector<size_t>& edge_o
     edge_id = std::vector<size_t>(first, last);
     for (auto& val : edge_id) val -= 1;
 } 
+
+void MPASOGrid::copyFromNdarray_Int(ftk::ndarray_group* g, std::string value, std::vector<size_t>& vec)
+{
+    if (g->has(value))
+    {
+        auto tmp_ptr = std::dynamic_pointer_cast<ftk::ndarray<int32_t>>(g->get(value));
+        auto tmp_vec = tmp_ptr->std_vector();
+        vec.resize(tmp_vec.size());
+        for (auto i = 0; i < tmp_vec.size(); i++)
+            vec[i] = static_cast<size_t>(tmp_vec[i]);
+        Debug("[Ndarray]::loading %s_vec = \t [ %d ] \t type = [ %s ]", 
+            value.c_str(),
+            vec.size(), 
+            ftk::ndarray_base::dtype2str(g->get(value).get()->type()).c_str());
+    }
+}
+
+void MPASOGrid::copyFromNdarray_Vec2(ftk::ndarray_group* g, std::string xValue, std::string yValue, std::vector<vec2>& vec, std::string name)
+{
+    if (g->has(xValue) && g->has(yValue))
+    {
+        auto Lat_ptr = std::dynamic_pointer_cast<ftk::ndarray<double>>(g->get(xValue));
+        auto Lon_ptr = std::dynamic_pointer_cast<ftk::ndarray<double>>(g->get(yValue));
+        auto Lat_vec = Lat_ptr->std_vector();
+        auto Lon_vec = Lon_ptr->std_vector();
+        vec.resize(Lat_vec.size());
+        for (auto i = 0; i < Lat_vec.size(); i++)
+        {
+            vec[i] = vec2(Lat_vec[i], Lon_vec[i]);
+        }
+        Debug("[Ndarray]::loading %s = \t [ %d ] \t type = [ %s %s ]", 
+            name.c_str(),
+            vec.size(), 
+            ftk::ndarray_base::dtype2str(g->get(xValue).get()->type()).c_str(),
+            ftk::ndarray_base::dtype2str(g->get(yValue).get()->type()).c_str());
+    }
+}
+
+void MPASOGrid::copyFromNdarray_Vec3(ftk::ndarray_group* g, std::string xValue, std::string yValue, std::string zValue, std::vector<vec3>& vec, std::string name)
+{
+    if(g->has(xValue) && g->has(yValue) && g->has(zValue))
+    {
+        auto xEdge_ptr = std::dynamic_pointer_cast<ftk::ndarray<double>>(g->get(xValue));
+        auto yEdge_ptr = std::dynamic_pointer_cast<ftk::ndarray<double>>(g->get(yValue));
+        auto zEdge_ptr = std::dynamic_pointer_cast<ftk::ndarray<double>>(g->get(zValue));
+        auto xEdge_vec = xEdge_ptr->std_vector();
+        auto yEdge_vec = yEdge_ptr->std_vector();
+        auto zEdge_vec = zEdge_ptr->std_vector();
+        vec.resize(xEdge_vec.size());
+        for (auto i = 0; i < xEdge_vec.size(); i++)
+        {
+           vec[i] = vec3(xEdge_vec[i], yEdge_vec[i], zEdge_vec[i]);
+        }
+        Debug("[Ndarray]::loading %s = \t [ %d ] \t type = [ %s %s %s]", 
+            name.c_str(),
+            vec.size(), 
+            ftk::ndarray_base::dtype2str(g->get(xValue).get()->type()).c_str(),
+            ftk::ndarray_base::dtype2str(g->get(yValue).get()->type()).c_str(),
+            ftk::ndarray_base::dtype2str(g->get(zValue).get()->type()).c_str());
+    }
+}
